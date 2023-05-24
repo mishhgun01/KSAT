@@ -27,69 +27,87 @@ type solution struct {
 	bannedMap map[int]bool
 }
 
+type fileOutput struct {
+	mu *sync.Mutex
+	f  *os.File
+}
+
 func main() {
+
 	t1 := time.Now().UnixNano()
-	files, err := ioutil.ReadDir("./tests")
+	files, err := ioutil.ReadDir("tests")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var output *os.File
 	output, err = os.Create("output.txt")
+	fOut := fileOutput{mu: &sync.Mutex{}, f: output}
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
 	var choice = 1
 	full := true
-
+	var wgOut sync.WaitGroup
 	for _, f := range files {
-		entry, err := read("tests/" + f.Name())
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		var wg sync.WaitGroup
-		m := make(map[int]bool)
-		s := solution{mu: &sync.Mutex{}, bannedMap: m}
-		for _, c := range entry {
-			wg.Add(1)
-			go func(con conjunct) {
-				defer wg.Done()
-				arr := solver(con)
-				for _, el := range arr {
-					s.mu.Lock()
-					s.bannedMap[el] = true
-					s.mu.Unlock()
+		wgOut.Add(1)
+		go func(fileName string) {
+			defer wgOut.Done()
+			entry, err := read("tests/" + fileName)
+			if err != nil {
+				log.Println(err.Error())
+				return
+			}
+			var wg sync.WaitGroup
+			m := make(map[int]bool)
+			s := solution{mu: &sync.Mutex{}, bannedMap: m}
+			for _, c := range entry {
+				wg.Add(1)
+				go func(con conjunct) {
+					defer wg.Done()
+					arr := solver(con)
+					for _, el := range arr {
+						s.mu.Lock()
+						s.bannedMap[el] = true
+						s.mu.Unlock()
+					}
+				}(c)
+			}
+			wg.Wait()
+			fName := fileName
+			fName += "("
+			for i := 'a'; i < alphabetSize+'a'; i++ {
+				fName += string(i)
+				fName += ","
+			}
+			fName += ")"
+			if choice == 1 {
+				str, i := outputSingle(s.bannedMap, full)
+				if full {
+					fOut.mu.Lock()
+					fmt.Fprintf(fOut.f, str, fName, i)
+					fOut.mu.Unlock()
+				} else {
+					fOut.mu.Lock()
+					fmt.Fprintf(fOut.f, str, fName)
+					fOut.mu.Unlock()
 				}
-			}(c)
-		}
-		wg.Wait()
-		fName := f.Name()
-		fName += "("
-		for i := 'a'; i < alphabetSize+'a'; i++ {
-			fName += string(i)
-			fName += ","
-		}
-		fName += ")"
-		if choice == 1 {
-			str, i := outputSingle(s.bannedMap, full)
-			if full {
-				fmt.Fprintf(output, str, fName, i)
 			} else {
-				fmt.Fprintf(output, str, fName, i)
+				m := outputAll(s.bannedMap)
+				for k, v := range m {
+					fOut.mu.Lock()
+					fmt.Fprintf(fOut.f, k, fName, v)
+					fOut.mu.Unlock()
+				}
 			}
-		} else {
-			m := outputAll(s.bannedMap)
-			for k, v := range m {
-				fmt.Fprintf(output, k, fName, v)
-			}
-		}
+		}(f.Name())
 
 	}
 
+	wgOut.Wait()
 	t2 := time.Now().UnixNano()
-	fmt.Println(fmt.Sprintf("Прошло %d наносекунд", t2-t1))
+	fmt.Println(fmt.Sprintf("Прошло %f секунд", float64(t2-t1)/1000000000))
 }
 
 func outputAll(bannedMap map[int]bool) map[string]int {
@@ -113,7 +131,7 @@ func outputSingle(bannedMap map[int]bool, full bool) (string, int) {
 			if full {
 				return "%s = %0" + strconv.Itoa(alphabetSize) + "b\n", i
 			} else {
-				return "True\n", 0
+				return "%s = True\n", 0
 			}
 		}
 	}
@@ -159,11 +177,19 @@ func read(filename string) ([]conjunct, error) {
 		}
 		var el conjunct
 		separation := strings.Split(val, "_")
+
 		var positive, negative []byte
 		for _, char := range []byte(separation[0]) {
+			if char > 'z' || char < 'a' {
+				continue
+			}
 			positive = append(positive, char)
 		}
+
 		for _, char := range []byte(separation[1]) {
+			if char > 'z' || char < 'a' {
+				continue
+			}
 			negative = append(negative, char)
 		}
 		el.positive = positive
