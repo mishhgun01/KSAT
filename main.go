@@ -3,15 +3,17 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const alphabetSize = 'z' - 'a' + 1
-const FILENAME = "test.txt"
+const FILENAME = "test2.txt"
 
 type conjunct struct {
 	positive []byte
@@ -26,70 +28,97 @@ type solution struct {
 }
 
 func main() {
-	fmt.Println("Выберите режим программы:\n1 - Есть ли решение?\n2 - Сгенерировать файл с решениями")
-	var choice int
-	fmt.Scan(&choice)
-	if choice == 1 {
-		ch, err := check(FILENAME)
+
+	t1 := time.Now().UnixNano()
+	files, err := ioutil.ReadDir(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var output *os.File
+	output, err = os.Create("output.txt")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	var choice = 1
+	full := true
+
+	for _, f := range files {
+		entry, err := read(FILENAME)
 		if err != nil {
-			fmt.Printf("Файл '%s' не найден", FILENAME)
-		}
-		if ch {
-			fmt.Println("Решение есть")
+			log.Println(err.Error())
 			return
 		}
-	}
-	entry, err := read(FILENAME)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-	var wg sync.WaitGroup
-	m := make(map[int]bool)
-	s := solution{mu: &sync.Mutex{}, bannedMap: m}
-	for _, c := range entry {
-		wg.Add(1)
-		go func(con conjunct) {
-			defer wg.Done()
-			arr := solver(con)
-			for _, el := range arr {
-				s.mu.Lock()
-				s.bannedMap[el] = true
-				s.mu.Unlock()
+		var wg sync.WaitGroup
+		m := make(map[int]bool)
+		s := solution{mu: &sync.Mutex{}, bannedMap: m}
+		for _, c := range entry {
+			wg.Add(1)
+			go func(con conjunct) {
+				defer wg.Done()
+				arr := solver(con)
+				for _, el := range arr {
+					s.mu.Lock()
+					s.bannedMap[el] = true
+					s.mu.Unlock()
+				}
+			}(c)
+		}
+		wg.Wait()
+		fName := f.Name()
+		fName += "("
+		for i := 'a'; i < alphabetSize+'a'; i++ {
+			fName += string(i)
+			fName += ","
+		}
+		fName += ")"
+		if choice == 1 {
+			str, i := outputSingle(s.bannedMap, full)
+			if full {
+				fmt.Fprintf(output, str, fName, i)
+			} else {
+				fmt.Fprintf(output, str, fName, i)
 			}
-		}(c)
+		} else {
+			m := outputAll(s.bannedMap)
+			for k, v := range m {
+				fmt.Fprintf(output, k, fName, v)
+			}
+		}
+
 	}
-	wg.Wait()
-	if choice == 2 {
-		fmt.Println("Записываю в файл . . .")
-	}
-	output(s.bannedMap, choice)
+
+	t2 := time.Now().UnixNano()
+	fmt.Println(fmt.Sprintf("Прошло %d наносекунд", t2-t1))
 }
 
-func output(bannedMap map[int]bool, choice int) {
-	var f string
-	var output *os.File
-	if choice == 2 {
-		output, _ = os.Create("output.txt")
-		f += "("
-		for i := 'a'; i < alphabetSize+'a'; i++ {
-			f += string(i)
-			f += ","
-		}
-		f += ")"
-	}
+func outputAll(bannedMap map[int]bool) map[string]int {
+	var outputSol = make(map[string]int)
 	for i := 0; i < (1<<(alphabetSize+1) - 1); i++ {
 		_, ok := bannedMap[i]
 		if !ok {
-			if choice == 1 {
-				fmt.Println("Решение есть")
-				return
+			s := "%s = %0" + strconv.Itoa(alphabetSize) + "b\n"
+			outputSol[s] = i
+		}
+	}
+	return outputSol
+}
+
+// Функция вывода единственного решения
+func outputSingle(bannedMap map[int]bool, full bool) (string, int) {
+
+	for i := 0; i < (1<<(alphabetSize+1) - 1); i++ {
+		_, ok := bannedMap[i]
+		if !ok {
+			if full {
+				return "%s = %0" + strconv.Itoa(alphabetSize) + "b\n", i
 			} else {
-				fmtstr := "%s = %0" + strconv.Itoa(alphabetSize) + "b\n"
-				fmt.Fprintf(output, fmtstr, f, i)
+				return "True\n", 0
 			}
 		}
 	}
+	return "False\n", 0
 }
 
 func check(filename string) (bool, error) {
