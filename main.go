@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -38,7 +39,7 @@ func main() {
 			return
 		}
 	}
-	entry, err := read("test.txt")
+	entry, err := read(FILENAME)
 	if err != nil {
 		log.Println(err.Error())
 		return
@@ -59,7 +60,36 @@ func main() {
 		}(c)
 	}
 	wg.Wait()
+	if choice == 2 {
+		fmt.Println("Записываю в файл . . .")
+	}
+	output(s.bannedMap, choice)
+}
 
+func output(bannedMap map[int]bool, choice int) {
+	var f string
+	var output *os.File
+	if choice == 2 {
+		output, _ = os.Create("output.txt")
+		f += "("
+		for i := 'a'; i < alphabetSize+'a'; i++ {
+			f += string(i)
+			f += ","
+		}
+		f += ")"
+	}
+	for i := 0; i < (1<<(alphabetSize+1) - 1); i++ {
+		_, ok := bannedMap[i]
+		if !ok {
+			if choice == 1 {
+				fmt.Println("Решение есть")
+				return
+			} else {
+				fmtstr := "%s = %0" + strconv.Itoa(alphabetSize) + "b\n"
+				fmt.Fprintf(output, fmtstr, f, i)
+			}
+		}
+	}
 }
 
 func check(filename string) (bool, error) {
@@ -117,7 +147,7 @@ func read(filename string) ([]conjunct, error) {
 }
 
 func solver(input conjunct) []int {
-	// !(a|b|!c) = !a&!b&c = 0 0 1
+
 	var solComb []byte = make([]byte, alphabetSize)
 	for _, v := range input.positive {
 		solComb[v-'a'] = '0'
