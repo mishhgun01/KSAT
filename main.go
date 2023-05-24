@@ -10,6 +10,7 @@ import (
 )
 
 const alphabetSize = 'z' - 'a' + 1
+const FILENAME = "test.txt"
 
 type conjunct struct {
 	positive []byte
@@ -24,7 +25,19 @@ type solution struct {
 }
 
 func main() {
-
+	fmt.Println("Выберите режим программы:\n1 - Есть ли решение?\n2 - Сгенерировать файл с решениями")
+	var choice int
+	fmt.Scan(&choice)
+	if choice == 1 {
+		ch, err := check(FILENAME)
+		if err != nil {
+			fmt.Printf("Файл '%s' не найден", FILENAME)
+		}
+		if ch {
+			fmt.Println("Решение есть")
+			return
+		}
+	}
 	entry, err := read("test.txt")
 	if err != nil {
 		log.Println(err.Error())
@@ -46,7 +59,27 @@ func main() {
 		}(c)
 	}
 	wg.Wait()
-	fmt.Println(s)
+
+}
+
+func check(filename string) (bool, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return false, err
+	}
+	scanner := bufio.NewScanner(file)
+	var p []int = make([]int, 0, 50)
+	for scanner.Scan() {
+		p = append(p, len(scanner.Text())-1)
+	}
+	var oc int = 0
+	for _, v := range p {
+		oc += 1 << (alphabetSize - v)
+	}
+	if oc < (1 << alphabetSize) {
+		return true, nil
+	}
+	return false, nil
 }
 
 func read(filename string) ([]conjunct, error) {
