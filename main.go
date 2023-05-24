@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"strings"
 	"sync"
 )
+
+const alphabetSize = 'z' - 'a' + 1
 
 type conjunct struct {
 	positive []byte
@@ -23,6 +24,7 @@ type solution struct {
 }
 
 func main() {
+
 	entry, err := read("test.txt")
 	if err != nil {
 		log.Println(err.Error())
@@ -82,6 +84,73 @@ func read(filename string) ([]conjunct, error) {
 }
 
 func solver(input conjunct) []int {
+	// !(a|b|!c) = !a&!b&c = 0 0 1
+	var solComb []byte = make([]byte, alphabetSize)
+	for _, v := range input.positive {
+		solComb[v-'a'] = '0'
+	}
+	for _, v := range input.negative {
+		solComb[v-'a'] = '1'
+	}
+	var arrSol [][]byte = make([][]byte, 1)
+	arrSol[0] = solComb
+	flag := true
+	for flag == true {
+		flag = false
+		for _, v := range arrSol {
+			for i, u := range v {
+				if u == 0 {
+					flag = true
+					var nval1 []byte
+					var nval2 []byte
+					nval1 = append(nval1, v[0:i]...)
+					nval1 = append(nval1, '0')
+					nval1 = append(nval1, v[i+1:]...)
 
-	return []int{rand.Intn(100), (rand.Intn(100) + 1) * 10}
+					nval2 = append(nval2, v[0:i]...)
+					nval2 = append(nval2, '1')
+					nval2 = append(nval2, v[i+1:]...)
+					arrSol = remove(arrSol, v)
+					arrSol = append(arrSol, nval1, nval2)
+					break
+				}
+			}
+		}
+	}
+	var res []int = make([]int, 0, len(arrSol))
+	for _, v := range arrSol {
+		res = append(res, systemToInt(v))
+	}
+	return res
+}
+
+func remove(l [][]byte, item []byte) [][]byte {
+	for i, other := range l {
+		if equal(other, item) {
+			return append(l[:i], l[i+1:]...)
+		}
+	}
+	return l
+}
+
+func equal(a []byte, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func systemToInt(system []byte) int {
+	var res int = 0
+	for i, v := range system {
+		if v == '1' {
+			res += 1 << (len(system) - i - 1)
+		}
+	}
+	return res
 }
