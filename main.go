@@ -28,9 +28,8 @@ type solution struct {
 }
 
 func main() {
-
 	t1 := time.Now().UnixNano()
-	files, err := ioutil.ReadDir(".")
+	files, err := ioutil.ReadDir("./tests")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,7 +44,7 @@ func main() {
 	full := true
 
 	for _, f := range files {
-		entry, err := read(FILENAME)
+		entry, err := read("tests/" + f.Name())
 		if err != nil {
 			log.Println(err.Error())
 			return
