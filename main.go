@@ -101,6 +101,8 @@ func main() {
 					fOut.mu.Unlock()
 				}
 			}
+			t2 := time.Now().UnixNano()
+			fmt.Println(fmt.Sprintf("Файл: %s : %f секунд", fileName, float64(t2-t1)/1000000000))
 		}(f.Name())
 
 	}
