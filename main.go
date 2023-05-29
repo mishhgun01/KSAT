@@ -53,6 +53,7 @@ func main() {
 	for _, f := range files {
 		wgOut.Add(1)
 		go func(fileName string) {
+			tin := time.Now().UnixNano()
 			defer wgOut.Done()
 			entry, err := read("tests/" + fileName)
 			if err != nil {
@@ -102,7 +103,7 @@ func main() {
 				}
 			}
 			t2 := time.Now().UnixNano()
-			fmt.Println(fmt.Sprintf("Файл: %s : %f секунд", fileName, float64(t2-t1)/1000000000))
+			fmt.Println(fmt.Sprintf("Файл: %s : %f секунд", fileName, float64(t2-tin)/1000000000))
 		}(f.Name())
 
 	}
