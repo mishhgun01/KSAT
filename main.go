@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,16 +38,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	var output *os.File
-	output, err = os.Create("output.txt")
-	fOut := fileOutput{mu: &sync.Mutex{}, f: output}
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	var choice = 1
-	full := true
 	var wgOut sync.WaitGroup
 	for _, f := range files {
 		wgOut.Add(1)
@@ -76,32 +65,7 @@ func main() {
 				}(c)
 			}
 			wg.Wait()
-			fName := fileName
-			fName += "("
-			for i := 'a'; i < alphabetSize+'a'; i++ {
-				fName += string(i)
-				fName += ","
-			}
-			fName += ")"
-			if choice == 1 {
-				str, i := outputSingle(s.bannedMap, full)
-				if full {
-					fOut.mu.Lock()
-					fmt.Fprintf(fOut.f, str, fName, i)
-					fOut.mu.Unlock()
-				} else {
-					fOut.mu.Lock()
-					fmt.Fprintf(fOut.f, str, fName)
-					fOut.mu.Unlock()
-				}
-			} else {
-				m := outputAll(s.bannedMap)
-				for k, v := range m {
-					fOut.mu.Lock()
-					fmt.Fprintf(fOut.f, k, fName, v)
-					fOut.mu.Unlock()
-				}
-			}
+
 			t2 := time.Now().UnixNano()
 			fmt.Println(fmt.Sprintf("Файл: %s : %f секунд", fileName, float64(t2-tin)/1000000000))
 		}(f.Name())
@@ -111,34 +75,6 @@ func main() {
 	wgOut.Wait()
 	t2 := time.Now().UnixNano()
 	fmt.Println(fmt.Sprintf("Прошло %f секунд", float64(t2-t1)/1000000000))
-}
-
-func outputAll(bannedMap map[int]bool) map[string]int {
-	var outputSol = make(map[string]int)
-	for i := 0; i < (1<<(alphabetSize+1) - 1); i++ {
-		_, ok := bannedMap[i]
-		if !ok {
-			s := "%s = %0" + strconv.Itoa(alphabetSize) + "b\n"
-			outputSol[s] = i
-		}
-	}
-	return outputSol
-}
-
-// Функция вывода единственного решения
-func outputSingle(bannedMap map[int]bool, full bool) (string, int) {
-
-	for i := 0; i < (1<<(alphabetSize+1) - 1); i++ {
-		_, ok := bannedMap[i]
-		if !ok {
-			if full {
-				return "%s = %0" + strconv.Itoa(alphabetSize) + "b\n", i
-			} else {
-				return "%s = True\n", 0
-			}
-		}
-	}
-	return "False\n", 0
 }
 
 func check(filename string) (bool, error) {
